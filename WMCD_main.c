@@ -46,12 +46,17 @@
 
 /* All functions that differ between periodic and infinite boxes */
 
+void get_wavelet_parameters(wavelet_parameters *pwavelet, double Rmin, double Rmax,
+             bool recycle, Recycle_wavelet *recycled_w, int Ntot, double xyz[][3], double transform[3][3]);
+
 void planewave(Fourier_parameters *pplane_wave, double CDF[][2]);
 void planewave_cart(Fourier_parameters *pplane_wave, double k0, double Rmax, int Lcart,
                     double kextent[3], double kmetric[3][3]);
 
 void movew(double *position, System_parameters params, wavelet_parameters wavelet, double xyz_to_C[3][3],
            double C_to_xyz[3][3], double metric[3][3], double images[8][3],double image_dist[8]);
+
+void movepw(double *position, Fourier_parameters plane_wave, double metric[3][3]);
 
 double UF_move(double xyz[][3],System_parameters params,double forces[][3],bool find_forces,
                double metric[3][3],int *anchorxyz,int *spanxyz,
@@ -1225,6 +1230,50 @@ void evolve(double xyz[][3],double xyzn[][3],double forces[][3],System_parameter
 }
 
 
+/* generate wavelet parameters, without requiring it to move any particles */
+void get_wavelet_parameters(wavelet_parameters *pwavelet,double Rmin,double Rmax,
+             bool recycle, Recycle_wavelet *recycled_w, int Ntot, double xyz[][3], double transform[3][3])
+{
+    double probR;
+    double rCart[3];
+
+    /* generate particle array index number in [0,Ntot-1] */
+    int part_num = (int)pcg32_boundedrand((uint64_t)Ntot);
+
+    if(recycled_w->reuse == false || recycle == false) /* generate a new radius and wavelet centre */
+    {
+        /* radius of wavelet, with prob density ~ R^-4 */
+        probR = POW2_32_INV*pcg32_random();
+        pwavelet->radius = Rmin/cbrt(probR + (1-probR)*pow(Rmin/Rmax,3));
+
+    }
+    else /* reuse parameters of previously rejected wavelet */
+    {pwavelet->radius = recycled_w->radius;}
+
+    /* get direction and scaled distance of wavelet centre from chosen particle */
+    pwavelet->centre[0] = 1.0;
+    pwavelet->centre[1] = 1.0;
+    pwavelet->centre[2] = 1.0;
+
+    /* generate random vector within init sphere */
+    while(dot( pwavelet->centre , pwavelet->centre )>1)
+    {
+        pwavelet->centre[0] = 2*(POW2_32_INV*pcg32_random()) - 1;
+        pwavelet->centre[1] = 2*(POW2_32_INV*pcg32_random()) - 1;
+        pwavelet->centre[2] = 2*(POW2_32_INV*pcg32_random()) - 1;
+    }
+
+    transform_coords(xyz[part_num],rCart,transform);
+
+    pwavelet->centre_Cart[0] = rCart[0] + (pwavelet->radius)*(pwavelet->centre[0]);
+    pwavelet->centre_Cart[1] = rCart[1] + (pwavelet->radius)*(pwavelet->centre[1]);
+    pwavelet->centre_Cart[2] = rCart[2] + (pwavelet->radius)*(pwavelet->centre[2]);
+
+    /* orientation of the wavelet */
+    direction(pwavelet->polarisation);
+
+}
+
 
 void planewave(Fourier_parameters *pplane_wave, double CDF[][2])
 {
@@ -1327,6 +1376,18 @@ void movew(double *position, System_parameters params, wavelet_parameters wavele
     position[1] += dpos_xyz[1];
     position[2] += dpos_xyz[2];
 
+}
+
+
+/* move particles according to a plane wave */
+void movepw(double *position, Fourier_parameters plane_wave, double metric[3][3])
+{
+    double delta = (plane_wave.amplitude)*cos( (plane_wave.k) * find_drdR(plane_wave.khat_xyz, position, metric)
+                                               + plane_wave.phase);
+
+    position[0] = position[0] + delta*(plane_wave.polarisation_xyz[0]);
+    position[1] = position[1] + delta*(plane_wave.polarisation_xyz[1]);
+    position[2] = position[2] + delta*(plane_wave.polarisation_xyz[2]);
 }
 
 

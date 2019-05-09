@@ -329,15 +329,8 @@ void thermalise(int Ns, double sCDF[Ns][2], double kT, Potentials pot_params);
 void build_system(double xyz[][3], double xyzn[][3], double xyz0[][3],
                   System_parameters params, Potentials pot_params);
 
-/* Generate wavelet parameters */
-void get_wavelet_parameters(wavelet_parameters *pwavelet, double Rmin, double Rmax,
-             bool recycle, Recycle_wavelet *recycled_w, int Ntot, double xyz[][3], double transform[3][3]);
-
 /* permute wavevector components for recycling Fourier moves */
 void permute_k(double prev_khat[3], Fourier_parameters *pplane_wave);
-
-/* move particles according to plane wave vector field */
-void movepw(double *position, Fourier_parameters plane_wave, double metric[3][3]);
 
 /* wrapped coordinates */
 /* NOTE: this is currently not the shortest disance from the origin, but from the centre of the box */

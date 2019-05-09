@@ -386,51 +386,6 @@ void build_system(double xyz[][3], double xyzn[][3], double xyz0[][3], System_pa
 }
 
 
-/* generate wavelet parameters, without requiring it to move any particles */
-void get_wavelet_parameters(wavelet_parameters *pwavelet,double Rmin,double Rmax,
-             bool recycle, Recycle_wavelet *recycled_w, int Ntot, double xyz[][3], double transform[3][3])
-{
-    double probR;
-    double rCart[3];
-
-    /* generate particle array index number in [0,Ntot-1] */
-    int part_num = (int)pcg32_boundedrand((uint64_t)Ntot);
-
-    if(recycled_w->reuse == false || recycle == false) /* generate a new radius and wavelet centre */
-    {
-        /* radius of wavelet, with prob density ~ R^-4 */
-        probR = POW2_32_INV*pcg32_random();
-        pwavelet->radius = Rmin/cbrt(probR + (1-probR)*pow(Rmin/Rmax,3));
-
-    }
-    else /* reuse parameters of previously rejected wavelet */
-    {pwavelet->radius = recycled_w->radius;}
-
-    /* get direction and scaled distance of wavelet centre from chosen particle */
-    pwavelet->centre[0] = 1.0;
-    pwavelet->centre[1] = 1.0;
-    pwavelet->centre[2] = 1.0;
-
-    /* generate random vector within init sphere */
-    while(dot( pwavelet->centre , pwavelet->centre )>1)
-    {
-        pwavelet->centre[0] = 2*(POW2_32_INV*pcg32_random()) - 1;
-        pwavelet->centre[1] = 2*(POW2_32_INV*pcg32_random()) - 1;
-        pwavelet->centre[2] = 2*(POW2_32_INV*pcg32_random()) - 1;
-    }
-
-    transform_coords(xyz[part_num],rCart,transform);
-
-    pwavelet->centre_Cart[0] = rCart[0] + (pwavelet->radius)*(pwavelet->centre[0]);
-    pwavelet->centre_Cart[1] = rCart[1] + (pwavelet->radius)*(pwavelet->centre[1]);
-    pwavelet->centre_Cart[2] = rCart[2] + (pwavelet->radius)*(pwavelet->centre[2]);
-
-    /* orientation of the wavelet */
-    direction(pwavelet->polarisation);
-
-}
-
-
 /* permute wavevector components for recycling Fourier moves */
 void permute_k(double prev_khat[3], Fourier_parameters *pplane_wave)
 {
@@ -458,17 +413,6 @@ void permute_k(double prev_khat[3], Fourier_parameters *pplane_wave)
     }
 
 
-}
-
-/* move particles according to a plane wave */
-void movepw(double *position, Fourier_parameters plane_wave, double metric[3][3])
-{
-    double delta = (plane_wave.amplitude)*cos( (plane_wave.k) * find_drdR(plane_wave.khat_xyz, position, metric)
-                                               + plane_wave.phase);
-
-    position[0] = position[0] + delta*(plane_wave.polarisation_xyz[0]);
-    position[1] = position[1] + delta*(plane_wave.polarisation_xyz[1]);
-    position[2] = position[2] + delta*(plane_wave.polarisation_xyz[2]);
 }
 
 
